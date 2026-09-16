@@ -1,0 +1,215 @@
+:root {
+  color-scheme: dark;
+  --bg: #121317;
+  --grid: rgba(255, 255, 255, 0.035);
+  --text: #d4d5da;
+  --muted: #8f9199;
+  --field: #16171b;
+  --field-border: #6d707c;
+  --ember: #c9773a;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  overflow: hidden;
+  background:
+    linear-gradient(var(--grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid) 1px, transparent 1px),
+    var(--bg);
+  background-size: 40px 40px, 40px 40px, 100% 100%;
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* Page darkens when the eye opens */
+.dim {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 500ms ease;
+}
+body.watching .dim { opacity: 0.62; }
+
+/* Beam sits above the form and lightens whatever it crosses */
+#beamCanvas {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.stage {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 24px;
+}
+
+.reset-form { width: min(440px, calc(100vw - 48px)); }
+
+.reset-form h1 {
+  margin: 0 0 22px;
+  color: #e4e5e9;
+  font-size: 25px;
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  transition: color 500ms ease;
+}
+body.watching .reset-form h1 { color: #b9bac0; filter: url(#lensTitle); }
+
+.reset-form label {
+  display: block;
+  margin: 0 0 8px 1px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 500;
+}
+body.watching .reset-form label { filter: url(#lensLabel); }
+
+.password-field {
+  position: relative;
+  width: 100%;
+}
+
+.password-field input,
+.password-display {
+  font-family: "JetBrains Mono", "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 17px;
+  letter-spacing: 0.02em;
+}
+
+.password-field input {
+  width: 100%;
+  height: 56px;
+  padding: 0 64px 0 18px;
+  border: 1px solid var(--field-border);
+  border-radius: 10px;
+  outline: none;
+  background: var(--field);
+  color: #d9dade;
+  caret-color: #ececef;
+  line-height: 56px;
+  transition: border-color 400ms ease, box-shadow 400ms ease, background-color 400ms ease;
+}
+
+.password-field input:focus {
+  border-color: #b7bac6;
+  box-shadow: 0 0 0 3px rgba(190, 194, 208, 0.28);
+}
+
+body.watching .password-field input,
+body.watching .password-field input:focus {
+  border-color: rgba(201, 119, 58, 0.62);
+  background: #0f0f12;
+  color: transparent;
+  caret-color: transparent;
+  box-shadow: none;
+}
+
+/* small divider cell at the right end of the field, under the eye */
+.eye-chamber {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  bottom: 1px;
+  width: 30px;
+  border-left: 1px solid rgba(201, 119, 58, 0.45);
+  border-radius: 0 9px 9px 0;
+  background: linear-gradient(180deg, rgba(201, 119, 58, 0.06), rgba(0, 0, 0, 0.25));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 400ms ease;
+}
+body.watching .eye-chamber { opacity: 1; }
+
+.password-display {
+  position: absolute;
+  top: 0;
+  left: 18px;
+  right: 64px;
+  height: 56px;
+  z-index: 3;
+  display: none;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+}
+body.watching .password-display { display: flex; }
+
+.password-display span {
+  display: inline-block;
+  min-width: 0.62em;
+  text-align: center;
+  color: #6f7077;
+  transition: color 120ms linear;
+}
+.password-display span.revealed { color: #e6e6e2; }
+
+/* Eye perched on the top-right corner of the field */
+.eye-button {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
+  width: 44px;
+  height: 56px;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #9a9ca4;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform 500ms cubic-bezier(.2,.8,.2,1);
+}
+.eye-button:focus-visible::after {
+  content: "";
+  position: absolute;
+  inset: 12px 6px;
+  border-radius: 6px;
+  outline: 2px solid rgba(213, 216, 225, 0.7);
+}
+
+#eyeCanvas {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 200px;
+  height: 200px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+/* when open the eye rises on its spire above the field's corner */
+body.watching .eye-button { transform: translate(4px, -74px); }
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition-duration: 0ms !important; }
+}

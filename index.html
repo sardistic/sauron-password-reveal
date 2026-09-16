@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>One does not simply reveal a password</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <filter id="lensTitle" x="-20%" y="-50%" width="140%" height="200%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.010 0.035" numOctaves="2" seed="3" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+    <filter id="lensLabel" x="-20%" y="-50%" width="140%" height="200%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.014 0.05" numOctaves="2" seed="7" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="0" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
+  <div class="dim" aria-hidden="true"></div>
+  <canvas id="beamCanvas" aria-hidden="true"></canvas>
+  <main class="stage">
+    <form class="reset-form" autocomplete="off" onsubmit="return false">
+      <h1 id="title">Reset password.</h1>
+      <label id="label" for="password">Password</label>
+      <div class="password-field" id="passwordField">
+        <input id="password" name="password" type="password" value="you-shall-not-pass" spellcheck="false" autocomplete="off" aria-describedby="revealHint">
+        <div id="passwordDisplay" class="password-display" aria-hidden="true"></div>
+        <div class="eye-chamber" aria-hidden="true"></div>
+        <button id="eyeButton" class="eye-button" type="button" aria-label="Reveal password" aria-pressed="false">
+          <canvas id="eyeCanvas" aria-hidden="true"></canvas>
+        </button>
+      </div>
+      <span id="revealHint" class="sr-only">Activate the eye, then move the pointer to sweep the beam across the password. Only characters inside the beam are revealed.</span>
+    </form>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
