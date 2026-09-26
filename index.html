@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>One does not simply reveal a password</title>
+  <title>Speak, friend, and enter</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;800&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -21,22 +21,161 @@
     </filter>
   </svg>
   <div class="dim" aria-hidden="true"></div>
+  <canvas id="atmosphereCanvas" aria-hidden="true"></canvas>
   <canvas id="beamCanvas" aria-hidden="true"></canvas>
   <main class="stage">
-    <form class="reset-form" autocomplete="off" onsubmit="return false">
-      <h1 id="title">Reset password.</h1>
-      <label id="label" for="password">Password</label>
+    <form class="door" id="door" autocomplete="off" onsubmit="return false" aria-labelledby="title">
+      <!-- The Doors of Durin, drawn in ithildin: inscription arch, the seven
+           stars and crown, hammer and anvil, the Star of Fëanor, and the two
+           trees rising from the pillars. The pillars continue in CSS. -->
+      <svg class="ithildin" viewBox="0 0 560 200" aria-hidden="true">
+        <defs>
+          <path id="archText" d="M37 179.2 A243 143 0 0 1 523 179.2"/>
+          <g id="tree">
+            <path d="M76 200 V150 C76 118 104 92 150 76 C172 69 190 64 206 62"/>
+            <path d="M76 152 C90 130 110 118 136 110"/>
+            <path d="M76 172 C92 160 106 154 124 150"/>
+            <path d="M104 96 C114 100 122 104 128 112"/>
+            <circle cx="206" cy="62" r="1.6"/><circle cx="136" cy="110" r="1.6"/>
+            <circle cx="124" cy="150" r="1.6"/><circle cx="128" cy="112" r="1.6"/>
+            <circle cx="170" cy="70" r="1.3"/><circle cx="118" cy="114" r="1.3"/>
+          </g>
+        </defs>
+        <path d="M14 200 V179.2 A266 165.2 0 0 1 546 179.2 V200"/>
+        <path d="M44 200 V179.2 A236 136 0 0 1 516 179.2 V200"/>
+        <path d="M6 179.2 H52 M508 179.2 H554 M6 185 H52 M508 185 H554"/>
+        <text class="inscription"><textPath href="#archText" startOffset="50%" text-anchor="middle">ENNYN DURIN ARAN MORIA · PEDO MELLON A MINNO</textPath></text>
+        <use href="#tree"/>
+        <use href="#tree" transform="translate(560 0) scale(-1 1)"/>
+        <g class="stars">
+          <circle cx="251.8" cy="79.7" r="1.7"/><circle cx="258.2" cy="69.4" r="1.7"/>
+          <circle cx="268.1" cy="62.5" r="1.7"/><circle cx="280" cy="60" r="2"/>
+          <circle cx="291.9" cy="62.5" r="1.7"/><circle cx="301.8" cy="69.4" r="1.7"/>
+          <circle cx="308.2" cy="79.7" r="1.7"/>
+        </g>
+        <path d="M268 90 L266 76 L273 82 L276 72 L280 80 L284 72 L287 82 L294 76 L292 90 Z"/>
+        <path d="M266 100 H294 L290 104 H284 L286 110 H290 V113 H270 V110 H274 L276 104 H270 Z"/>
+        <path d="M298 108 L309 95 M305 91 L313 99"/>
+        <path class="feanor" d="M280 116 V148 M264 132 H296 M272.2 124.2 L287.8 139.8 M287.8 124.2 L272.2 139.8 M285.5 129.7 L274.5 134.3 M282.3 126.5 L277.7 137.5 M277.7 126.5 L282.3 137.5 M274.5 129.7 L285.5 134.3"/>
+        <circle cx="280" cy="132" r="3"/>
+      </svg>
+      <div class="arch-space" aria-hidden="true"></div>
+
+      <h1 id="title">Speak, friend, and enter.</h1>
+      <p class="lede">Passphrases forged from the tongues of Middle-earth.</p>
+
+      <div class="label-row">
+        <label id="label" for="password">Passphrase</label>
+        <span class="peek-hint" aria-hidden="true">Wake the Eye to read it</span>
+      </div>
       <div class="password-field" id="passwordField">
-        <input id="password" name="password" type="password" value="you-shall-not-pass" spellcheck="false" autocomplete="off" aria-describedby="revealHint">
+        <input id="password" name="password" type="password" value="" spellcheck="false" autocomplete="off" aria-describedby="revealHint">
         <div id="passwordDisplay" class="password-display" aria-hidden="true"></div>
         <div class="eye-chamber" aria-hidden="true"></div>
         <button id="eyeButton" class="eye-button" type="button" aria-label="Reveal password" aria-pressed="false">
           <canvas id="eyeCanvas" aria-hidden="true"></canvas>
         </button>
       </div>
-      <span id="revealHint" class="sr-only">Activate the eye, then move the pointer to sweep the beam across the password. Only characters inside the beam are revealed.</span>
+      <span id="revealHint" class="sr-only">Activate the eye, then move the pointer to sweep the beam across the passphrase. Only characters inside the beam are revealed.</span>
+
+      <div class="meter">
+        <div class="meter-bar"><i id="meterFill"></i></div>
+        <div class="meter-text">
+          <strong id="tier">—</strong>
+          <span id="crack"></span>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="button" id="forge" class="btn primary">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 17 L11 9 M9 5 L15 11 M12 2 L18 8 L15 11 L9 5 Z"/></svg>
+          Forge anew
+        </button>
+        <button type="button" id="copy" class="btn">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M13 4 H5 A2 2 0 0 0 3 6 V13"/></svg>
+          Copy
+        </button>
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="mode" role="radiogroup" aria-label="What to forge">
+        <button type="button" role="radio" aria-checked="true" data-mode="phrase">Passphrase</button>
+        <button type="button" role="radio" aria-checked="false" data-mode="password">Password</button>
+      </div>
+
+      <div class="options" id="phraseOptions">
+        <div class="opt">
+          <label class="opt-label" for="wordCount">Words</label>
+          <div class="opt-control range">
+            <input type="range" id="wordCount" min="3" max="12" value="6">
+            <output id="wordCountOut" for="wordCount">6</output>
+          </div>
+        </div>
+        <div class="opt">
+          <span class="opt-label" id="sepLabel">Separator</span>
+          <div class="opt-control chips" role="radiogroup" aria-labelledby="sepLabel" id="separator">
+            <button type="button" role="radio" data-value="-">-</button>
+            <button type="button" role="radio" data-value=".">.</button>
+            <button type="button" role="radio" data-value="_">_</button>
+            <button type="button" role="radio" data-value=" ">space</button>
+            <button type="button" role="radio" data-value="digit">0–9</button>
+          </div>
+        </div>
+        <div class="opt">
+          <span class="opt-label" id="caseLabel">Case</span>
+          <div class="opt-control chips" role="radiogroup" aria-labelledby="caseLabel" id="caseMode">
+            <button type="button" role="radio" data-value="lower">lower</button>
+            <button type="button" role="radio" data-value="title">Title</button>
+            <button type="button" role="radio" data-value="upper">UPPER</button>
+            <button type="button" role="radio" data-value="mixed">miXed</button>
+          </div>
+        </div>
+        <div class="opt">
+          <span class="opt-label">Extras</span>
+          <div class="opt-control toggles">
+            <label class="toggle"><input type="checkbox" id="addDigit"><span>Add a digit</span></label>
+            <label class="toggle"><input type="checkbox" id="keepAccents"><span>Keep accents <em>(dûr)</em></span></label>
+          </div>
+        </div>
+        <div class="opt">
+          <span class="opt-label" id="lexLabel">Lexicon</span>
+          <div class="opt-control">
+            <div class="chips lexicon" id="lexicon" role="group" aria-labelledby="lexLabel"></div>
+            <p class="pool" id="pool"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="options" id="passwordOptions" hidden>
+        <div class="opt">
+          <label class="opt-label" for="length">Length</label>
+          <div class="opt-control range">
+            <input type="range" id="length" min="8" max="64" value="24">
+            <output id="lengthOut" for="length">24</output>
+          </div>
+        </div>
+        <div class="opt">
+          <span class="opt-label" id="setsLabel">Include</span>
+          <div class="opt-control chips" id="charsets" role="group" aria-labelledby="setsLabel">
+            <button type="button" aria-pressed="true" data-set="upper">A–Z</button>
+            <button type="button" aria-pressed="true" data-set="lower">a–z</button>
+            <button type="button" aria-pressed="true" data-set="digits">0–9</button>
+            <button type="button" aria-pressed="true" data-set="symbols">!@#$</button>
+          </div>
+        </div>
+        <div class="opt">
+          <span class="opt-label">Extras</span>
+          <div class="opt-control toggles">
+            <label class="toggle"><input type="checkbox" id="noAmbiguous" checked><span>Avoid look-alikes <em>(Il1O0)</em></span></label>
+          </div>
+        </div>
+      </div>
+
+      <p class="footer-inscription" aria-hidden="true">Im Narvi hain echant · Celebrimbor o Eregion teithant i thiw hin</p>
     </form>
   </main>
+  <script src="lexicon.js"></script>
   <script src="script.js"></script>
+  <script src="generator.js"></script>
 </body>
 </html>
