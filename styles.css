@@ -400,6 +400,21 @@ body.watching .eye-button:focus-visible::after {
 .door[data-tier="0"] .meter-text strong, .door[data-tier="1"] .meter-text strong { color: var(--ember); }
 .door[data-tier="5"] .meter-text strong, .door[data-tier="6"] .meter-text strong { color: var(--ithildin); text-shadow: 0 0 10px var(--ithildin-glow); }
 .meter-text span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.crack {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 8px 0 0;
+}
+.crack div {
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.18);
+}
+.crack dt { color: var(--faint); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+.crack dd { margin: 2px 0 0; color: #cfd1d8; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.crack-note { margin: 6px 1px 0; color: var(--faint); font-size: 11px; line-height: 1.45; }
 
 /* ---- Actions ------------------------------------------------------------- */
 

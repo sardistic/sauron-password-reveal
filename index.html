@@ -82,8 +82,13 @@
         <div class="meter-bar"><i id="meterFill"></i></div>
         <div class="meter-text">
           <strong id="tier">—</strong>
-          <span id="crack"></span>
+          <span id="bits"></span>
         </div>
+        <dl class="crack">
+          <div title="bcrypt, scrypt or argon2 — about 10,000 guesses a second on a GPU rig"><dt>Well-kept hash</dt><dd id="crackSlow">—</dd></div>
+          <div title="MD5, SHA-1 or NTLM — about 10 billion guesses a second on a GPU rig"><dt>Leaked fast hash</dt><dd id="crackFast">—</dd></div>
+        </dl>
+        <p class="crack-note">Assumes the attacker has this very word list. It is public, so rare words earn no extra credit; the strength comes from the random choice.</p>
       </div>
 
       <div class="actions">
@@ -135,6 +140,7 @@
           <div class="opt-control toggles">
             <label class="toggle"><input type="checkbox" id="addDigit"><span>Add a digit</span></label>
             <label class="toggle"><input type="checkbox" id="keepAccents"><span>Keep accents <em>(dûr)</em></span></label>
+            <label class="toggle"><input type="checkbox" id="forms"><span>Plurals &amp; -ing forms <em>(swords, riding)</em></span></label>
           </div>
         </div>
         <div class="opt">

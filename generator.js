@@ -10,12 +10,13 @@
   const els = {
     wordCount: $('#wordCount'), wordCountOut: $('#wordCountOut'),
     separator: $('#separator'), caseMode: $('#caseMode'),
-    addDigit: $('#addDigit'), keepAccents: $('#keepAccents'),
+    addDigit: $('#addDigit'), keepAccents: $('#keepAccents'), forms: $('#forms'),
     lexicon: $('#lexicon'), pool: $('#pool'),
     length: $('#length'), lengthOut: $('#lengthOut'),
     charsets: $('#charsets'), noAmbiguous: $('#noAmbiguous'),
     phraseOptions: $('#phraseOptions'), passwordOptions: $('#passwordOptions'),
-    meterFill: $('#meterFill'), tier: $('#tier'), crack: $('#crack')
+    meterFill: $('#meterFill'), tier: $('#tier'), bits: $('#bits'),
+    crackSlow: $('#crackSlow'), crackFast: $('#crackFast')
   }
 
   const CHARSETS = {
@@ -25,7 +26,11 @@
     symbols: '!@#$%^&*-_=+?~'
   }
   const AMBIGUOUS = /[Il1O0o]/g
-  const GUESSES_PER_SECOND = 1e10   // a well-equipped offline attacker
+  // Offline attacks on a stolen hash. A properly stored password (bcrypt,
+  // scrypt, argon2) holds a GPU rig to roughly 10^4 guesses a second; a fast
+  // unsalted hash (MD5, SHA-1, NTLM) lets it try around 10^10.
+  const SLOW_HASH_RATE = 1e4
+  const FAST_HASH_RATE = 1e10
 
   const TIERS = [
     [0, 'Fool of a Took!'],
@@ -39,7 +44,7 @@
 
   const defaults = {
     mode: 'phrase',
-    words: 6, separator: '-', caseMode: 'title', addDigit: true, keepAccents: false,
+    words: 6, separator: '-', caseMode: 'title', addDigit: true, keepAccents: false, forms: true,
     lexicon: Object.fromEntries(LEXICON.map(l => [l.id, l.on])),
     length: 24, sets: { upper: true, lower: true, digits: true, symbols: true }, noAmbiguous: true
   }
@@ -68,7 +73,8 @@
     const set = new Set()
     for (const list of LEXICON) {
       if (!opts.lexicon[list.id]) continue
-      for (const w of list.words) set.add(opts.keepAccents ? w : fold(w))
+      const words = opts.forms ? [...list.words, ...list.forms] : list.words
+      for (const w of words) set.add(opts.keepAccents ? w : fold(w))
     }
     return [...set]
   }
@@ -117,30 +123,33 @@
     return { text: chars.join(''), bits: L * Math.log2(all.length) }
   }
 
-  function formatCrack(bits) {
-    const seconds = Math.pow(2, bits - 1) / GUESSES_PER_SECOND
-    if (seconds < 1) return 'cracked in an instant'
+  // Expected time to find it: half the keyspace at the given guess rate.
+  function formatCrack(bits, rate) {
+    const seconds = Math.pow(2, bits - 1) / rate
+    if (seconds < 1) return 'an instant'
     const units = [['second', 60], ['minute', 60], ['hour', 24], ['day', 365.25]]
     let v = seconds
     for (const [name, next] of units) {
-      if (v < next) return `≈ ${Math.round(v)} ${name}${Math.round(v) === 1 ? '' : 's'} to crack`
+      if (v < next) return `${Math.round(v)} ${name}${Math.round(v) === 1 ? '' : 's'}`
       v /= next
     }
     const years = v
-    let span
-    if (years < 1000) span = `${Math.round(years)} years`
-    else if (years < 1e15) span = `${new Intl.NumberFormat('en', { notation: 'compact', compactDisplay: 'long', maximumFractionDigits: 1 }).format(years)} years`
-    else span = `10^${Math.floor(Math.log10(years))} years`
-    // The Third Age lasted 3,021 years.
-    const ages = years >= 3021 * 3 && years < 1e15 ? ` —${new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 0 }).format(years / 3021)} Ages` : ''
-    return `≈ ${span} to crack${ages}`
+    if (years < 1000) return `${Math.round(years)} year${Math.round(years) === 1 ? '' : 's'}`
+    if (years < 1e15) {
+      const span = new Intl.NumberFormat('en', { notation: 'compact', compactDisplay: 'long', maximumFractionDigits: 1 }).format(years)
+      // The Third Age lasted 3,021 years.
+      const ages = years >= 3021 * 3 ? ` (${new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 0 }).format(years / 3021)} Ages)` : ''
+      return `${span} years${ages}`
+    }
+    return `10^${Math.floor(Math.log10(years))} years`
   }
 
   function showStrength(bits) {
     if (bits == null) {
       els.meterFill.style.width = '0%'
       els.tier.textContent = 'Altered by hand'
-      els.crack.textContent = 'strength unknown until forged anew'
+      els.bits.textContent = 'strength unknown until forged anew'
+      els.crackSlow.textContent = els.crackFast.textContent = '—'
       door.dataset.tier = ''
       return
     }
@@ -148,7 +157,9 @@
     TIERS.forEach(([min], i) => { if (bits >= min) tier = i })
     els.meterFill.style.width = `${Math.min(100, (bits / 128) * 100)}%`
     els.tier.textContent = TIERS[tier][1]
-    els.crack.textContent = `${Math.round(bits)} bits · ${formatCrack(bits)}`
+    els.bits.textContent = `${Math.round(bits)} bits`
+    els.crackSlow.textContent = formatCrack(bits, SLOW_HASH_RATE)
+    els.crackFast.textContent = formatCrack(bits, FAST_HASH_RATE)
     door.dataset.tier = String(tier)
   }
 
@@ -208,7 +219,7 @@
       b.dataset.id = list.id
       b.title = list.hint
       b.className = list.id === 'black' ? 'dark-tongue' : ''
-      b.innerHTML = `${list.name}<small>${list.words.length}</small>`
+      b.innerHTML = `${list.name}<small></small>`
       b.setAttribute('aria-pressed', String(!!opts.lexicon[list.id]))
       return b
     }))
@@ -232,7 +243,12 @@
     setRadio(els.caseMode, opts.caseMode)
     els.addDigit.checked = opts.addDigit
     els.keepAccents.checked = opts.keepAccents
-    for (const b of els.lexicon.children) b.setAttribute('aria-pressed', String(!!opts.lexicon[b.dataset.id]))
+    els.forms.checked = opts.forms
+    for (const b of els.lexicon.children) {
+      const list = LEXICON.find(l => l.id === b.dataset.id)
+      b.setAttribute('aria-pressed', String(!!opts.lexicon[b.dataset.id]))
+      b.querySelector('small').textContent = (list.words.length + (opts.forms ? list.forms.length : 0)).toLocaleString('en')
+    }
     renderPool()
     els.length.value = opts.length
     els.lengthOut.value = opts.length
@@ -254,6 +270,7 @@
   els.length.addEventListener('input', () => { opts.length = +els.length.value; changed() })
   els.addDigit.addEventListener('change', () => { opts.addDigit = els.addDigit.checked; changed() })
   els.keepAccents.addEventListener('change', () => { opts.keepAccents = els.keepAccents.checked; changed() })
+  els.forms.addEventListener('change', () => { opts.forms = els.forms.checked; changed() })
   els.noAmbiguous.addEventListener('change', () => { opts.noAmbiguous = els.noAmbiguous.checked; changed() })
 
   els.lexicon.addEventListener('click', e => {

@@ -221,19 +221,194 @@ function buildAtmosphere() {
   }))
 }
 
+// Barad-dûr, in units relative to the Eye's centre (1 unit = 1 CSS px at the
+// Eye's full size). Built once so the silhouette never shifts between opens.
+let tower = null
+function buildTower() {
+  // Left half of the spire, top to bottom: a narrow neck under the prongs,
+  // then ever-larger thorned tiers. The right half mirrors it.
+  const edge = [[-66, 64], [-50, 84], [-44, 104]]
+  const thorns = []
+  let y = 104
+  while (y < 2000) {
+    const depth = y - 104
+    const step = 38 + Math.random() * 26 + depth * 0.02
+    const next = towerHalf(depth + step)
+    edge.push([-(next - 3), y + step])
+    const len = 6 + Math.random() * 8 + depth * 0.012
+    thorns.push({ x: -(next - 3), y: y + step, len })
+    edge.push([-(next + 5), y + step + 5])
+    y += step
+  }
+  const windows = Array.from({ length: 22 }, () => {
+    const wy = 150 + Math.pow(Math.random(), 1.4) * 520
+    return { x: (Math.random() * 2 - 1) * towerHalf(wy - 104) * 0.65, y: wy, h: 3 + Math.random() * 4, phase: Math.random() * TAU, a: 0.2 + Math.random() * 0.45 }
+  })
+  const ridges = [-0.62, -0.34, -0.12, 0.12, 0.34, 0.62]
+  tower = { edge, thorns, windows, ridges }
+}
+
+// Half-width of the spire `depth` units below its neck: tall and narrow near
+// the summit, spreading into a massive base.
+function towerHalf(depth) {
+  return 44 + depth * 0.075 + Math.pow(depth / 400, 2) * 14
+}
+
+// One prong of the crown, as a closed path; `side` is -1 (left) or 1 (right).
+function prongPath(ctx, side) {
+  const s = side
+  ctx.moveTo(40 * s, 60)
+  ctx.bezierCurveTo(92 * s, 22, 88 * s, -118, 58 * s, -214)          // inner face, up to the tip
+  ctx.bezierCurveTo(80 * s, -168, 96 * s, -120, 102 * s, -88)        // outer edge, top
+  ctx.lineTo(112 * s, -96); ctx.lineTo(106 * s, -70)                // barb
+  ctx.bezierCurveTo(114 * s, -52, 118 * s, -30, 116 * s, -4)
+  ctx.lineTo(128 * s, -10); ctx.lineTo(116 * s, 14)                  // barb
+  ctx.bezierCurveTo(110 * s, 34, 90 * s, 54, 66 * s, 64)
+  ctx.closePath()
+}
+
+function drawTower(ctx, eye, time, strength) {
+  if (!tower) buildTower()
+  const k = eyeButton.getBoundingClientRect().width / 360
+  const bottom = (innerHeight - eye.y) / k + 40
+  const t = time / 1000
+  ctx.save()
+  ctx.translate(eye.x, eye.y)
+  ctx.scale(k, k)
+  ctx.globalAlpha = strength
+
+  // Silhouette: prongs, crown and spire, filled darker the further from the fire.
+  const body = new Path2D()
+  const pts = tower.edge.filter(([, py]) => py < bottom + 80)
+  body.moveTo(-66, 64)
+  for (const [px, py] of pts) body.lineTo(px, py)
+  body.lineTo(pts[pts.length - 1][0], bottom + 80)
+  body.lineTo(-pts[pts.length - 1][0], bottom + 80)
+  for (let i = pts.length - 1; i >= 0; i--) body.lineTo(-pts[i][0], pts[i][1])
+  body.lineTo(66, 64)
+  body.lineTo(40, 60); body.lineTo(22, 46); body.lineTo(0, 54); body.lineTo(-22, 46); body.lineTo(-40, 60)
+  body.closePath()
+  for (const th of tower.thorns) {
+    if (th.y > bottom + 80) break
+    for (const s of [-1, 1]) {
+      body.moveTo(th.x * s, th.y - 2)
+      body.lineTo((th.x - th.len) * s, th.y - th.len * 1.9)
+      body.lineTo((th.x + 2) * s, th.y + 8)
+      body.closePath()
+    }
+  }
+  const prongs = new Path2D()
+  prongPath(prongs, -1)
+  prongPath(prongs, 1)
+
+  const fill = ctx.createRadialGradient(0, 0, 40, 0, 0, 900)
+  fill.addColorStop(0, '#1c0a05')
+  fill.addColorStop(0.15, '#070506')
+  fill.addColorStop(0.4, '#020203')
+  fill.addColorStop(1, '#010102')
+  ctx.fillStyle = fill
+  ctx.fill(body)
+  ctx.fill(prongs)
+
+  // Buttress ridges converge on the summit and catch a little firelight.
+  ctx.lineWidth = 1
+  for (const r of tower.ridges) {
+    const g = ctx.createLinearGradient(0, 100, 0, 480)
+    g.addColorStop(0, 'rgba(214, 92, 34, 0.24)')
+    g.addColorStop(1, 'rgba(214, 92, 34, 0)')
+    ctx.strokeStyle = g
+    ctx.beginPath()
+    ctx.moveTo(r * 36, 100)
+    ctx.lineTo(r * towerHalf(800) * 0.85, 900)
+    ctx.stroke()
+  }
+
+  // Rim light: every edge facing the Eye glows, fading with distance.
+  const rim = ctx.createRadialGradient(0, 0, 30, 0, 0, 420)
+  rim.addColorStop(0, 'rgba(255, 150, 60, 0.8)')
+  rim.addColorStop(0.4, 'rgba(230, 90, 25, 0.25)')
+  rim.addColorStop(1, 'rgba(160, 40, 10, 0)')
+  ctx.strokeStyle = rim
+  ctx.lineWidth = 1.3
+  ctx.stroke(body)
+  ctx.stroke(prongs)
+
+  // The prongs' inner faces take the full heat of the fire.
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.shadowColor = 'rgba(255, 90, 20, 0.9)'
+  ctx.shadowBlur = 14
+  ctx.lineWidth = 2.2
+  const flick = reducedMotion ? 1 : 0.85 + Math.sin(t * 3.1) * 0.08 + Math.sin(t * 7.3) * 0.05
+  for (const s of [-1, 1]) {
+    const face = ctx.createLinearGradient(0, 60, 0, -214)
+    face.addColorStop(0, `rgba(255, 170, 80, ${0.75 * flick})`)
+    face.addColorStop(0.5, `rgba(255, 110, 30, ${0.55 * flick})`)
+    face.addColorStop(1, 'rgba(200, 50, 10, 0.05)')
+    ctx.strokeStyle = face
+    ctx.beginPath()
+    ctx.moveTo(40 * s, 60)
+    ctx.bezierCurveTo(92 * s, 22, 88 * s, -118, 58 * s, -214)
+    ctx.stroke()
+  }
+  ctx.restore()
+
+  // Lit slits in the tower's face.
+  ctx.save()
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.shadowColor = 'rgba(255, 80, 10, 0.8)'
+  ctx.shadowBlur = 6
+  for (const w of tower.windows) {
+    if (w.y > bottom) continue
+    const a = w.a * (reducedMotion ? 1 : 0.7 + 0.3 * Math.sin(t * 0.9 + w.phase))
+    ctx.fillStyle = `rgba(255, 128, 40, ${a})`
+    ctx.fillRect(w.x - 0.8, w.y, 1.6, w.h)
+  }
+  ctx.restore()
+  ctx.restore()
+
+  // Sink the base into the haze instead of ending on a hard edge.
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-out'
+  const fadeTop = eye.y + 260 * k
+  const fade = ctx.createLinearGradient(0, fadeTop, 0, innerHeight)
+  fade.addColorStop(0, 'rgba(0, 0, 0, 0)')
+  fade.addColorStop(1, 'rgba(0, 0, 0, 0.82)')
+  ctx.fillStyle = fade
+  ctx.fillRect(0, fadeTop, innerWidth, innerHeight - fadeTop)
+  ctx.restore()
+}
+
 function drawAtmosphere(time, eye, strength) {
   const ctx = atmosphereCtx
   const t = time / 1000
   ctx.clearRect(0, 0, innerWidth, innerHeight)
   if (strength <= 0.005) return
 
-  // Deep orange bloom in the cloud bank behind the Eye.
+  drawTower(ctx, eye, time, strength)
+
+  // Deep orange bloom in the cloud bank behind the Eye (and behind the tower).
+  ctx.save()
+  ctx.globalCompositeOperation = 'destination-over'
   const bloom = ctx.createRadialGradient(eye.x, eye.y, 25, eye.x, eye.y, Math.min(innerWidth, innerHeight) * 0.42)
   bloom.addColorStop(0, `rgba(184, 58, 12, ${0.22 * strength})`)
   bloom.addColorStop(0.24, `rgba(93, 35, 17, ${0.13 * strength})`)
   bloom.addColorStop(1, 'rgba(0, 0, 0, 0)')
   ctx.fillStyle = bloom
   ctx.fillRect(0, 0, innerWidth, innerHeight)
+  // Fire-lit haze in a column behind the tower, so its black mass reads.
+  const k = eyeButton.getBoundingClientRect().width / 360
+  ctx.save()
+  ctx.translate(eye.x, eye.y + 260 * k)
+  ctx.scale(1, 2.1)
+  const haze = ctx.createRadialGradient(0, 0, 0, 0, 0, 330 * k)
+  haze.addColorStop(0, `rgba(120, 44, 14, ${0.2 * strength})`)
+  haze.addColorStop(0.5, `rgba(70, 28, 12, ${0.1 * strength})`)
+  haze.addColorStop(1, 'rgba(0, 0, 0, 0)')
+  ctx.fillStyle = haze
+  ctx.fillRect(-340 * k, -340 * k, 680 * k, 680 * k)
+  ctx.restore()
+  ctx.restore()
 
   ctx.save()
   ctx.filter = 'blur(32px)'
@@ -282,68 +457,15 @@ function drawEye(time, dir, brightness) {
   const flicker = reducedMotion ? 0 : 1
   const rx = 76, ry = 30   // broad, ragged furnace surrounding the slit
 
-  // Barad-dûr: a nearly black taper with orange fissures and a forked crown.
-  const spire = ctx.createLinearGradient(0, 10, 0, s / 2)
-  spire.addColorStop(0, `rgba(19, 9, 6, ${0.98 * brightness})`)
-  spire.addColorStop(0.55, `rgba(7, 6, 7, ${0.98 * brightness})`)
-  spire.addColorStop(1, `rgba(2, 3, 5, ${0.98 * brightness})`)
-  ctx.fillStyle = spire
-  ctx.beginPath()
-  ctx.moveTo(-19, 14)
-  ctx.lineTo(19, 14)
-  ctx.lineTo(32, s / 2)
-  ctx.lineTo(-32, s / 2)
-  ctx.closePath()
-  ctx.fill()
-
-  const rim = ctx.createLinearGradient(0, 8, 0, s / 2)
-  rim.addColorStop(0, `rgba(255, 127, 35, ${0.58 * brightness})`)
-  rim.addColorStop(0.38, `rgba(157, 50, 15, ${0.22 * brightness})`)
-  rim.addColorStop(1, 'rgba(255, 100, 30, 0)')
-  ctx.strokeStyle = rim
-  ctx.lineWidth = 1.1
-  ctx.beginPath()
-  ctx.moveTo(-18, 13); ctx.lineTo(-32, s / 2)
-  ctx.moveTo(18, 13); ctx.lineTo(32, s / 2)
-  ctx.stroke()
-
-  // Vertical ribs disappear into the tower's black mass instead of leaving a
-  // flat rectangle beneath the flame.
-  for (let i = -3; i <= 3; i++) {
-    const x = i * 7
-    const rib = ctx.createLinearGradient(0, 24, 0, s / 2)
-    rib.addColorStop(0, `rgba(122, 49, 20, ${0.2 * brightness})`)
-    rib.addColorStop(0.45, `rgba(48, 29, 23, ${0.13 * brightness})`)
-    rib.addColorStop(1, 'rgba(0,0,0,0)')
-    ctx.strokeStyle = rib
-    ctx.lineWidth = i === 0 ? 1.4 : 0.75
-    ctx.beginPath()
-    ctx.moveTo(x * 0.55, 18)
-    ctx.lineTo(x, s / 2)
-    ctx.stroke()
-  }
-
-  // The two iron horns enclosing the fire.
-  ctx.fillStyle = `rgba(3, 3, 4, ${brightness})`
-  ctx.beginPath()
-  ctx.moveTo(-48, 25); ctx.lineTo(-69, -104); ctx.lineTo(-37, -51); ctx.lineTo(-23, 4)
-  ctx.lineTo(23, 4); ctx.lineTo(37, -51); ctx.lineTo(69, -104); ctx.lineTo(48, 25)
-  ctx.closePath(); ctx.fill()
-  ctx.strokeStyle = `rgba(109, 49, 24, ${0.42 * brightness})`
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(-48, 20); ctx.lineTo(-69, -104); ctx.lineTo(-33, -45)
-  ctx.moveTo(48, 20); ctx.lineTo(69, -104); ctx.lineTo(33, -45)
-  ctx.stroke()
-
-  // dark halo so the eye sits in front of the field corner
-  const halo = ctx.createRadialGradient(0, 0, 18, 0, 0, 138)
-  halo.addColorStop(0, `rgba(6, 4, 3, ${0.9 * brightness})`)
-  halo.addColorStop(0.6, `rgba(6, 4, 3, ${0.55 * brightness})`)
+  // dark halo so the eye sits in the smoke
+  // (kept tight so it doesn't blot out the tower's prongs behind it)
+  const halo = ctx.createRadialGradient(0, 0, 18, 0, 0, 96)
+  halo.addColorStop(0, `rgba(6, 4, 3, ${0.85 * brightness})`)
+  halo.addColorStop(0.6, `rgba(6, 4, 3, ${0.4 * brightness})`)
   halo.addColorStop(1, 'rgba(6, 4, 3, 0)')
   ctx.fillStyle = halo
   ctx.beginPath()
-  ctx.ellipse(0, 0, 142, 106, 0, 0, TAU)
+  ctx.ellipse(0, 0, 100, 70, 0, 0, TAU)
   ctx.fill()
 
   // Flames peel upward and downward from the eye's almond envelope. This
